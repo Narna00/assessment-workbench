@@ -1,0 +1,79 @@
+{
+  "schema": "assessment-authorization/v1",
+  "engagement_id": "LAB-ONLY-001",
+  "approved_by": "Replace with the actual lab owner; example is not authorization",
+  "valid_from": "2026-01-01T00:00:00Z",
+  "valid_until": "2027-01-01T00:00:00Z",
+  "domains": {
+    "web": {
+      "targets": [
+        "http://127.0.0.1:8765"
+      ],
+      "permitted_cases": [
+        "WEB-01",
+        "WEB-02",
+        "WEB-03",
+        "WEB-04",
+        "WEB-05",
+        "WEB-06",
+        "WEB-07",
+        "WEB-08",
+        "WEB-09",
+        "WEB-10",
+        "WEB-11",
+        "WEB-12"
+      ]
+    },
+    "ad": {
+      "targets": [
+        "example.test isolated AD lab"
+      ],
+      "permitted_cases": [
+        "AD-01",
+        "AD-02",
+        "AD-03",
+        "AD-04",
+        "AD-05",
+        "AD-06",
+        "AD-07",
+        "AD-08",
+        "AD-09",
+        "AD-10"
+      ]
+    },
+    "wifi": {
+      "targets": [
+        "02:00:00:00:00:01 owned RF-isolated lab AP"
+      ],
+      "permitted_cases": [
+        "WIFI-01",
+        "WIFI-02",
+        "WIFI-03",
+        "WIFI-04",
+        "WIFI-05",
+        "WIFI-06",
+        "WIFI-07",
+        "WIFI-08",
+        "WIFI-09",
+        "WIFI-10"
+      ]
+    },
+    "endpoint": {
+      "targets": [
+        "owned disposable VM; replace with exact host identity"
+      ],
+      "permitted_cases": [
+        "ENDPOINT-01",
+        "ENDPOINT-02",
+        "ENDPOINT-03",
+        "ENDPOINT-04",
+        "ENDPOINT-05",
+        "ENDPOINT-06",
+        "ENDPOINT-07",
+        "ENDPOINT-08",
+        "ENDPOINT-09",
+        "ENDPOINT-10"
+      ]
+    }
+  }
+}

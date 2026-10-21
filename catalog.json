@@ -1,0 +1,1598 @@
+{
+  "schema": "assessment-catalog/v1",
+  "version": "0.1.0",
+  "cases": [
+    {
+      "id": "WEB-01",
+      "domain": "web",
+      "title": "Object-level and tenant authorization",
+      "objective": "Establish whether identity and tenant boundaries are enforced per object, not just in the UI.",
+      "prerequisites": [
+        "Two seeded users A/B with separate objects; two test tenants; no customer records.",
+        "Map the owner and tenant of every fixture before testing."
+      ],
+      "procedure": [
+        "Capture a successful request for A object 1001.",
+        "With B credentials, replay the same method and object ID; change only the token.",
+        "Repeat on export, nested, bulk, and alternate-version endpoints.",
+        "Check server-side owner/tenant audit records."
+      ],
+      "probes": [
+        "GET /orders?id=1001 HTTP/1.1\nHost: 127.0.0.1:8765\nAuthorization: Bearer lab-b",
+        "curl --max-time 5 -H \"Authorization: Bearer lab-b\" \"http://127.0.0.1:8765/orders?id=1001\""
+      ],
+      "secure_behavior": "The foreign object is withheld; own-object access still works. Status code alone is insufficient: inspect the body and backend action.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A shared object or administrative test role can legitimately cross ownership. A 404 is not proof of enforcement if an asynchronous job still runs.",
+      "remediation": "Bind authorization to subject, tenant, action, and object on every backend path; add cross-tenant regression tests.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "ZAP manual request editor",
+        "Included loopback lab"
+      ],
+      "sources": [
+        "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/",
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-02",
+      "domain": "web",
+      "title": "SQL injection through boolean differentials",
+      "objective": "Detect data-query interpretation of untrusted input with a minimal non-destructive fixture.",
+      "prerequisites": [
+        "Disposable database with synthetic products only.",
+        "A known query route and one baseline result; disable caches for comparison."
+      ],
+      "procedure": [
+        "Request a normal product ID.",
+        "Compare true/false boolean predicates encoded in the same input.",
+        "Record returned fixture IDs and query logs.",
+        "Stop after proof of altered query semantics; do not enumerate real data."
+      ],
+      "probes": [
+        "Baseline: /search?id=1",
+        "True: /search?id=1%20AND%201%3D1",
+        "False: /search?id=1%20AND%201%3D2"
+      ],
+      "secure_behavior": "Inputs remain typed data. Invalid numeric syntax is rejected or safely parameterized; the true/false pair cannot alter query logic.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Different errors, cache keys, validation rules, or nondeterministic data can mimic a differential. Use control requests and database traces.",
+      "remediation": "Use parameterized queries and typed validation. Query builders must not interpolate raw fragments.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "SQLite fixture in lab_web.py",
+        "sqlmap only in separately approved disposable labs"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security",
+        "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-03",
+      "domain": "web",
+      "title": "Reflected and DOM script execution",
+      "objective": "Determine whether attacker-controlled markup reaches an executable browser context.",
+      "prerequisites": [
+        "Disposable browser profile and synthetic account.",
+        "Use a lab-only DOM marker; no credential collection or external callback."
+      ],
+      "procedure": [
+        "Insert a plain canary and locate its output context.",
+        "Submit the marker payload in that context.",
+        "Inspect DOM, console, response encoding, and CSP.",
+        "Repeat through client-side routing and stored-field display using synthetic records."
+      ],
+      "probes": [
+        "Plain marker: WB_CANARY_01",
+        "<svg onload=\"document.documentElement.dataset.wbprobe='executed'\"></svg>",
+        "Inspect: document.documentElement.dataset.wbprobe"
+      ],
+      "secure_behavior": "Untrusted text is encoded for its precise context; the dataset marker never changes due to injected input.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A reflected string is not script execution. A blocked payload under CSP can leave a real injection defect; distinguish the sink defect from demonstrated impact.",
+      "remediation": "Use contextual encoding and safe DOM APIs; sanitize permitted HTML with a maintained library; use CSP as an additional layer.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp DOM Invader",
+        "Browser developer tools",
+        "ZAP"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security",
+        "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-04",
+      "domain": "web",
+      "title": "Server-side template expression evaluation",
+      "objective": "Check whether user text is compiled as template code.",
+      "prerequisites": [
+        "Disposable template fixture; approved message field.",
+        "Arithmetic-only expressions; no object traversal or operating-system access."
+      ],
+      "procedure": [
+        "Submit a literal marker, then arithmetic expressions.",
+        "Compare returned bytes to literal and calculated values.",
+        "Inspect server template logs to distinguish rendering from client-side evaluation."
+      ],
+      "probes": [
+        "WB_{{7*7}}_END",
+        "WB_${7*7}_END",
+        "WB_<%= 7*7 %>_END"
+      ],
+      "secure_behavior": "The expressions are rendered as data, not evaluated as template programs.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "49 can appear coincidentally. Engine syntax varies; three negative probes do not exhaust template engines.",
+      "remediation": "Keep template source static, bind data through variables, and remove dangerous interpolation paths.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "Application template logs"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-05",
+      "domain": "web",
+      "title": "Command-injection canary",
+      "objective": "Establish whether a field enters a shell rather than an argument-safe process API.",
+      "prerequisites": [
+        "Dedicated local container with a harmless text-processing endpoint.",
+        "Approve one marker-print action; never use an external callback or shell session."
+      ],
+      "procedure": [
+        "Record a baseline argument.",
+        "Try a shell delimiter followed by a marker print.",
+        "Correlate output with process creation logs.",
+        "Stop when interpretation is demonstrated."
+      ],
+      "probes": [
+        "example; printf WB_CMD_01",
+        "example && printf WB_CMD_02",
+        "example & echo WB_CMD_03"
+      ],
+      "secure_behavior": "Input stays one argument or is rejected; no second command is invoked.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A reflected marker is not command execution. Shell syntax depends on OS; inspect process telemetry.",
+      "remediation": "Avoid the shell; invoke a fixed executable with an argument list and an allowlist of expected values.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "osquery process events where configured",
+        "Server logs"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-06",
+      "domain": "web",
+      "title": "Path traversal against a planted sentinel",
+      "objective": "Check file-path confinement without reading real operating-system or application secrets.",
+      "prerequisites": [
+        "Create public/readme.txt and a synthetic canary outside the intended public directory.",
+        "Use only files deliberately planted for the test."
+      ],
+      "procedure": [
+        "Fetch the allowed readme.",
+        "Try relative, encoded, and absolute references to the planted canary.",
+        "Record canonical path resolution in server logs.",
+        "Repeat with mixed separators only if the target OS supports them."
+      ],
+      "probes": [
+        "../lab-canary.txt",
+        "%2e%2e%2flab-canary.txt",
+        "..%2flab-canary.txt"
+      ],
+      "secure_behavior": "The resolved file remains within the approved root; the sentinel is inaccessible through the download route.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Uniform error pages and WAF blocking can obscure vulnerable backend normalization. Encodings can be decoded at different layers.",
+      "remediation": "Use opaque file identifiers and canonical containment checks; reject linked paths and normalize once at a defined boundary.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "Filesystem audit logs"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-07",
+      "domain": "web",
+      "title": "SSRF with an owned loopback canary",
+      "objective": "Test server-side URL fetching and redirect checks without touching cloud metadata or third-party hosts.",
+      "prerequisites": [
+        "Two owned lab services: allowed fetch target and disallowed loopback canary.",
+        "Log connections at the canary; document the exact allowlist."
+      ],
+      "procedure": [
+        "Fetch the allowed URL.",
+        "Submit the disallowed canary URL.",
+        "Use a lab redirect from allowed service to disallowed service.",
+        "Inspect egress logs and resolve/pin behavior."
+      ],
+      "probes": [
+        "http://127.0.0.1:9001/wb-canary",
+        "http://allowed.example.test/redirect-to-lab-canary"
+      ],
+      "secure_behavior": "Policy is applied to resolved destination addresses and every redirect; disallowed canary sees no request.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A response timeout cannot prove no request occurred. DNS results and redirects can change between checks.",
+      "remediation": "Restrict protocols, resolve and validate every destination, pin addresses during connection, limit redirects and response sizes, and enforce egress controls.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "Owned canary HTTP logs",
+        "Container network telemetry"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-08",
+      "domain": "web",
+      "title": "Session lifecycle and privilege transitions",
+      "objective": "Check token invalidation across logout, password reset, role change, and account suspension.",
+      "prerequisites": [
+        "Two synthetic sessions and a reversible test account.",
+        "Owner-approved role change; capture tokens only in restricted evidence storage."
+      ],
+      "procedure": [
+        "Record successful authorized action with session A.",
+        "Log out A and replay the same token.",
+        "Repeat after changing test password, removing a role, and suspending the fixture account.",
+        "Measure documented revocation latency."
+      ],
+      "probes": [
+        "Replay GET /account using the exact old Cookie or Bearer token after each transition.",
+        "Compare old token vs newly issued token on the same object and action."
+      ],
+      "secure_behavior": "Revocation and privilege changes take effect within the documented threat-model window; old tokens cannot retain revoked actions.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Stateless short-lived tokens may intentionally have a revocation delay. A changed UI is not backend invalidation.",
+      "remediation": "Define session lifecycle requirements, rotate tokens on privilege changes, and use server-side revocation where the risk warrants it.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "Identity provider audit logs"
+      ],
+      "sources": [
+        "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/",
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-09",
+      "domain": "web",
+      "title": "CSRF and cross-origin policy",
+      "objective": "Check whether ambient credentials can authorize an unintended state-changing request.",
+      "prerequisites": [
+        "Test account and a disposable preference field.",
+        "Two owned origins; record actual cookie SameSite behavior."
+      ],
+      "procedure": [
+        "Capture an authorized preference update.",
+        "From the second owned origin submit the equivalent form without the anti-CSRF token.",
+        "Check backend state rather than relying on a browser CORS error.",
+        "Repeat with missing, null, and untrusted Origin values where applicable."
+      ],
+      "probes": [
+        "<form action=\"http://127.0.0.1:8765/preferences\" method=\"POST\"><input name=\"theme\" value=\"canary\"></form>",
+        "Origin: https://untrusted.example.test"
+      ],
+      "secure_behavior": "Untrusted-origin state changes are rejected by appropriate token/origin/session controls; readable cross-origin responses are restricted.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "CORS response blocking does not prevent a request from changing state. Bearer tokens explicitly attached by scripts have a different CSRF model from ambient cookies.",
+      "remediation": "Use CSRF defenses for ambient authentication, explicit trusted origins, and appropriate cookie attributes.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Browser developer tools",
+        "Burp Repeater"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-10",
+      "domain": "web",
+      "title": "Business logic and idempotency",
+      "objective": "Verify that repeated or reordered operations cannot violate a defined business invariant.",
+      "prerequisites": [
+        "Synthetic order and fake-credit balance; no payment gateway.",
+        "An invariant written by the owner, e.g. one refund per paid fixture."
+      ],
+      "procedure": [
+        "Run the normal workflow once.",
+        "Replay one request with the same idempotency key.",
+        "Try the same key with a different body.",
+        "Attempt one out-of-order transition and inspect committed state.",
+        "Use a separate approved concurrency experiment if races are in scope."
+      ],
+      "probes": [
+        "Idempotency-Key: wb-order-0001",
+        "POST /refunds {\"order_id\":\"LAB-001\",\"amount\":1}"
+      ],
+      "secure_behavior": "Repeated actions are deduplicated, conflicting key reuse is rejected, and invalid state transitions cannot commit.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A retry response may differ while the backend state remains correct. Delayed workers require a bounded observation period.",
+      "remediation": "Enforce invariants transactionally, bind idempotency to principal and request content, and validate state transitions server-side.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "Application/database transaction logs"
+      ],
+      "sources": [
+        "https://wstg.owasp.org/v4.2/4-Web_Application_Security_Testing/"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-11",
+      "domain": "web",
+      "title": "Upload content and serving isolation",
+      "objective": "Validate content handling and origin separation using benign files with mismatched types.",
+      "prerequisites": [
+        "Dedicated upload space and a synthetic account.",
+        "Small text/HTML/SVG fixtures; no executable web shells or malware."
+      ],
+      "procedure": [
+        "Upload a permitted plain-text file.",
+        "Repeat with a mismatched extension and Content-Type.",
+        "Download it and inspect disposition, MIME, and serving origin.",
+        "Check authorization on the uploaded object."
+      ],
+      "probes": [
+        "Filename: wb-canary.jpg; body: <p>WB_UPLOAD_MARKER</p>",
+        "Content-Type: image/jpeg; actual content: plain ASCII marker"
+      ],
+      "secure_behavior": "Validation follows the actual permitted content; untrusted uploads are served with suitable disposition and isolated privileges/origin.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Accepting a harmless mismatch is not itself code execution. Establish a reachable dangerous interpretation before rating impact.",
+      "remediation": "Allowlist formats, validate signatures/structure, randomize names, enforce storage authorization, and isolate untrusted serving.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Burp Repeater",
+        "Browser developer tools"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "WEB-12",
+      "domain": "web",
+      "title": "HTTP parsing and cache boundaries",
+      "objective": "Identify disagreement between intermediaries and backends without probing a shared production connection pool.",
+      "prerequisites": [
+        "Owned reverse proxy/backend pair, packet capture, isolated connection pool.",
+        "Build one malformed request fixture at a time and reset the lab between tests."
+      ],
+      "procedure": [
+        "Record normal request framing and cache policy.",
+        "Submit duplicate header fields to the parser fixture and compare normalized values.",
+        "In the isolated lab test conflicting length metadata under explicit approval.",
+        "Check whether a second synthetic request is misassociated; never use another user request as the detector."
+      ],
+      "probes": [
+        "Offline parser fixture: Content-Length: 4\\r\\nContent-Length: 5",
+        "Cache-control probe: repeat a synthetic private response under two test identities."
+      ],
+      "secure_behavior": "Malformed framing is rejected consistently; private responses cannot be served to another identity.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A 400 from one hop does not prove all hops agree; connection reuse and cache configuration materially affect outcomes.",
+      "remediation": "Normalize or reject ambiguous framing, align proxy/backend parsers, and exclude personalized responses from shared caches.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Owned proxy debug logs",
+        "Wireshark",
+        "Burp Repeater in the isolated lab"
+      ],
+      "sources": [
+        "https://portswigger.net/web-security"
+      ],
+      "impact": "controlled active validation"
+    },
+    {
+      "id": "AD-01",
+      "domain": "ad",
+      "title": "Password policy and effective fine-grained policy",
+      "objective": "Review the effective policy of a specific test principal, including exceptions.",
+      "prerequisites": [
+        "Authorized domain read account and RSAT ActiveDirectory module.",
+        "Known test principal lab.user; no password guessing."
+      ],
+      "procedure": [
+        "Export the domain default.",
+        "Query resultant policy for lab.user.",
+        "If no resultant policy is returned, document default inheritance.",
+        "Compare to the organization-approved standard and lockout monitoring."
+      ],
+      "probes": [
+        "Get-ADDefaultDomainPasswordPolicy",
+        "Get-ADUserResultantPasswordPolicy -Identity lab.user"
+      ],
+      "secure_behavior": "Effective controls meet the approved standard; exceptions have an owner and expiry.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A strong domain default can be overridden by a fine-grained policy. A missing resultant policy is not automatically a collection failure.",
+      "remediation": "Reconcile policy precedence and exceptions, then retest the actual assigned policy.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "RSAT ActiveDirectory",
+        "AD policy exports"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/activedirectory/get-addefaultdomainpasswordpolicy",
+        "https://learn.microsoft.com/powershell/module/activedirectory/get-aduserresultantpasswordpolicy"
+      ],
+      "impact": "read-only directory inspection"
+    },
+    {
+      "id": "AD-02",
+      "domain": "ad",
+      "title": "Nested privileged membership",
+      "objective": "Find indirect administrative access and explain every membership hop.",
+      "prerequisites": [
+        "Approved directory snapshot and privileged group inventory.",
+        "Document domain SID and custom delegated admin groups."
+      ],
+      "procedure": [
+        "Enumerate direct and recursive privileged membership.",
+        "Compare SID-based group identities across domains.",
+        "Trace suspicious principals to their source group.",
+        "Review stale and service-account members with the owner."
+      ],
+      "probes": [
+        "Get-ADGroupMember -Identity 'Domain Admins'",
+        "Get-ADGroupMember -Identity 'Domain Admins' -Recursive"
+      ],
+      "secure_behavior": "Privileged membership is limited, justified, and attributable through a complete path.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Localized group names differ. Recursive output can hide the path; keep direct membership records too.",
+      "remediation": "Remove unjustified inherited privileges, separate administrative identities, and review nested groups.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "BloodHound CE",
+        "RSAT",
+        "iam-path-review normalized export"
+      ],
+      "sources": [
+        "https://bloodhound.specterops.io/",
+        "https://learn.microsoft.com/powershell/module/activedirectory/get-adgroupmember"
+      ],
+      "impact": "read-only directory inspection"
+    },
+    {
+      "id": "AD-03",
+      "domain": "ad",
+      "title": "Delegation configuration",
+      "objective": "Locate unconstrained, constrained, and resource-based delegation settings for owner review.",
+      "prerequisites": [
+        "Read access to approved computer and service-account objects.",
+        "Snapshot the lab before any later validation; this card changes no delegation."
+      ],
+      "procedure": [
+        "Export delegation-related attributes for scoped objects.",
+        "Map each allowed service to an actual business dependency.",
+        "Review who can modify the relevant objects and delegation attributes.",
+        "Flag stale/overbroad entries for a separately approved validation."
+      ],
+      "probes": [
+        "Get-ADComputer -Filter * -Properties TrustedForDelegation,msDS-AllowedToDelegateTo,msDS-AllowedToActOnBehalfOfOtherIdentity | Select-Object Name,TrustedForDelegation,msDS-AllowedToDelegateTo,msDS-AllowedToActOnBehalfOfOtherIdentity"
+      ],
+      "secure_behavior": "Delegation is constrained to documented needs and its configuration is writable only by authorized administrators.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Attribute presence alone does not prove a usable attack path; service availability, identity protections, and ACLs matter.",
+      "remediation": "Remove obsolete delegation, restrict configuration ACLs, and prefer least-privilege delegation designs.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "RSAT",
+        "BloodHound CE"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/activedirectory/get-adcomputer",
+        "https://bloodhound.specterops.io/"
+      ],
+      "impact": "read-only directory inspection"
+    },
+    {
+      "id": "AD-04",
+      "domain": "ad",
+      "title": "AD CS template and enrollment review",
+      "objective": "Assess whether certificate issuance rules can overstate identity or privilege.",
+      "prerequisites": [
+        "Authorized CA/template read access; dedicated test template for any enrollment proof.",
+        "Never request a certificate for another real user."
+      ],
+      "procedure": [
+        "Inventory templates, enrollment permissions, subject controls, EKUs, approval settings, and CA publication.",
+        "Review conjunctions of settings rather than one flag.",
+        "If approved, enroll only as the synthetic principal using a test template and verify the resulting subject."
+      ],
+      "probes": [
+        "certutil -CATemplates",
+        "Review a sanitized template export for: enrollment ACL, subject-name control, EKUs, issuance requirements, and publication state."
+      ],
+      "secure_behavior": "Enrollment and identity-binding rules match intended certificate use; unauthorized principals cannot obtain higher-privilege identities.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A risky template flag without enrollment permission, CA publication, or compatible authentication settings is not demonstrated exploitation.",
+      "remediation": "Tighten enrollment rights and subject controls, remove unused authentication templates, and review CA-level settings.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Certipy discovery mode after owner review",
+        "certutil",
+        "CA audit logs"
+      ],
+      "sources": [
+        "https://github.com/ly4k/Certipy",
+        "https://bloodhound.specterops.io/"
+      ],
+      "impact": "configuration review; lab enrollment is separate"
+    },
+    {
+      "id": "AD-05",
+      "domain": "ad",
+      "title": "LDAP transport and signing evidence",
+      "objective": "Determine whether directory authentication and query transport meet policy at both client and server.",
+      "prerequisites": [
+        "Known test account; owner-defined LDAP/LDAPS endpoint and TLS trust store.",
+        "Capture no real user passwords."
+      ],
+      "procedure": [
+        "Review server signing/channel-binding policy and client compatibility.",
+        "Connect with the approved LDAP client using certificate validation.",
+        "Record negotiated transport and rejection of the explicitly prohibited lab configuration.",
+        "Check directory server events for the same test time."
+      ],
+      "probes": [
+        "Use ldp.exe against the lab DC with the approved TLS/signing configuration; record connection properties.",
+        "Offline filter canary: (sAMAccountName=lab.user)",
+        "Escaped filter value for literal star: lab\\2auser"
+      ],
+      "secure_behavior": "Required signing, TLS trust, and channel-binding policy are enforced as designed without weakening client validation.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A successful LDAPS socket connection does not establish authentication policy. A failed bind can be caused by identity errors.",
+      "remediation": "Stage enforcement with client inventory, use validated certificates, and investigate incompatible clients.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "ldp.exe",
+        "Directory event logs",
+        "Included ldap_escape.py"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/activedirectory/",
+        "https://learn.microsoft.com/windows/win32/ldap/ldap-ssl-connections"
+      ],
+      "impact": "read-only configuration plus controlled bind"
+    },
+    {
+      "id": "AD-06",
+      "domain": "ad",
+      "title": "SMB signing and legacy protocol posture",
+      "objective": "Review signing requirements and legacy protocol exposure on scoped lab hosts.",
+      "prerequisites": [
+        "Authorized local configuration read on a member host and server.",
+        "Identify client/server roles separately."
+      ],
+      "procedure": [
+        "Export SMB client and server settings.",
+        "Compare configured requirements to negotiated sessions from approved clients.",
+        "Correlate with the role and approved compatibility exceptions."
+      ],
+      "probes": [
+        "Get-SmbServerConfiguration | Select-Object RequireSecuritySignature,EnableSecuritySignature,EnableSMB1Protocol,EnableSMB2Protocol",
+        "Get-SmbClientConfiguration | Select-Object RequireSecuritySignature,EnableSecuritySignature"
+      ],
+      "secure_behavior": "Signing and supported protocols satisfy policy on both ends; exceptions are documented and bounded.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Configuration capability is not negotiated protection. Client and server policies differ; defaults vary by release.",
+      "remediation": "Remove obsolete protocol dependencies and enforce signing through staged policy rollout.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "PowerShell SMB cmdlets",
+        "Wireshark on owned captures"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3"
+      ],
+      "impact": "read-only host inspection"
+    },
+    {
+      "id": "AD-07",
+      "domain": "ad",
+      "title": "Kerberos account attribute review",
+      "objective": "Identify service accounts and authentication exceptions that warrant deeper review.",
+      "prerequisites": [
+        "Approved scoped account list, directory read access, and account owners.",
+        "No ticket harvesting, offline password cracking, or password spraying is performed by this procedure."
+      ],
+      "procedure": [
+        "Export SPNs, preauthentication exceptions, encryption configuration, and password-change dates.",
+        "Reconcile service dependencies and account management model.",
+        "Review effective privilege paths before prioritizing a finding."
+      ],
+      "probes": [
+        "Get-ADUser -Filter * -Properties ServicePrincipalName,DoesNotRequirePreAuth,msDS-SupportedEncryptionTypes,PasswordLastSet | Select-Object SamAccountName,ServicePrincipalName,DoesNotRequirePreAuth,msDS-SupportedEncryptionTypes,PasswordLastSet"
+      ],
+      "secure_behavior": "Authentication exceptions are justified; service identities have appropriate managed credentials and least privilege.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "An SPN or old timestamp does not prove a weak password or a usable compromise. Configuration flags need context.",
+      "remediation": "Use suitable managed service accounts, remove obsolete exceptions, and minimize service-account privileges.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "RSAT",
+        "BloodHound CE"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/activedirectory/get-aduser",
+        "https://bloodhound.specterops.io/"
+      ],
+      "impact": "read-only directory inspection"
+    },
+    {
+      "id": "AD-08",
+      "domain": "ad",
+      "title": "Trust boundaries and cross-domain privilege",
+      "objective": "Verify intended trust direction and privileged access across domain boundaries.",
+      "prerequisites": [
+        "Written scope listing every participating forest/domain.",
+        "Read access and an owner-provided trust design."
+      ],
+      "procedure": [
+        "Export trust metadata.",
+        "Compare direction, transitivity, and filtering settings to the design.",
+        "Trace approved cross-domain membership paths.",
+        "Mark inaccessible domains as coverage gaps rather than secure."
+      ],
+      "probes": [
+        "Get-ADTrust -Filter * | Select-Object Name,Direction,ForestTransitive,IntraForest,SIDFilteringForestAware,SIDFilteringQuarantined"
+      ],
+      "secure_behavior": "Trust properties and cross-domain privileges are necessary, documented, and restricted.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A trust object alone does not imply universal authorization; selective authentication and resource ACLs matter.",
+      "remediation": "Remove obsolete trusts and constrain cross-boundary authentication and administrative paths.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "RSAT",
+        "BloodHound CE"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/activedirectory/get-adtrust",
+        "https://bloodhound.specterops.io/"
+      ],
+      "impact": "read-only directory inspection"
+    },
+    {
+      "id": "AD-09",
+      "domain": "ad",
+      "title": "GPO and administrative object write paths",
+      "objective": "Review whether low-privilege principals can alter privileged policy objects.",
+      "prerequisites": [
+        "Approved GPO GUIDs and group policy administration read access.",
+        "No GPO modification is needed for this card."
+      ],
+      "procedure": [
+        "Export delegated GPO permissions.",
+        "Inspect linked OU targets and inheritance.",
+        "Review write access to policy content and directory objects.",
+        "Use a lab clone for any later change-and-revert demonstration."
+      ],
+      "probes": [
+        "Get-GPPermission -Guid '00000000-0000-0000-0000-000000000001' -All",
+        "Get-Acl 'AD:OU=Lab,DC=example,DC=test' | Format-List"
+      ],
+      "secure_behavior": "Write-capable identities and links match the approved administrative boundary.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "An ACL string can omit effective group membership or deny interactions. Read permission is not write permission.",
+      "remediation": "Restrict delegation, validate OU inheritance, and monitor policy changes.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "GroupPolicy module",
+        "AD ACL export",
+        "BloodHound CE"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/grouppolicy/get-gppermission",
+        "https://bloodhound.specterops.io/"
+      ],
+      "impact": "read-only directory inspection"
+    },
+    {
+      "id": "AD-10",
+      "domain": "ad",
+      "title": "Detection and recovery of an approved directory action",
+      "objective": "Check whether a harmless approved directory action is visible and attributable.",
+      "prerequisites": [
+        "A synthetic group and synthetic user; explicit permission for a reversible membership change.",
+        "Defender contact and rollback owner; telemetry time synchronization."
+      ],
+      "procedure": [
+        "Record the expected audit event and detection latency budget.",
+        "Have the authorized operator perform the lab membership change.",
+        "Verify the event identifies subject, target, and time.",
+        "Revert the change and verify removal plus event visibility."
+      ],
+      "probes": [
+        "Lab action specification: add lab.user to LAB-CANARY-GROUP, then remove it under the owner-approved change record.",
+        "Query the collected security events for the exact principal, group, and UTC test interval."
+      ],
+      "secure_behavior": "The approved change and rollback are detected within the agreed interval with correct identity attribution.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Missing centralized logs can reflect ingestion delay rather than absent host auditing. Clock skew distorts latency.",
+      "remediation": "Enable appropriate auditing, repair collection paths, and test alert logic with owned canaries.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Windows event logs",
+        "SIEM",
+        "MITRE ATT&CK mapping"
+      ],
+      "sources": [
+        "https://attack.mitre.org/resources/get-started/adversary-emulation-and-red-teaming/"
+      ],
+      "impact": "reversible lab-only state change"
+    },
+    {
+      "id": "WIFI-01",
+      "domain": "wifi",
+      "title": "BSSID inventory and scope attribution",
+      "objective": "Separate authorized radios from neighboring or unowned networks before any active test.",
+      "prerequisites": [
+        "Owned AP list with BSSID, channel, band, SSID, and location.",
+        "Legal capture authority and an adapter that supports the required band."
+      ],
+      "procedure": [
+        "Collect a bounded passive inventory in the approved area.",
+        "Match BSSIDs to controller records; account for multi-BSSID and roaming.",
+        "Mark unmatched radios unknown and refer them to the owner; do not connect to them."
+      ],
+      "probes": [
+        "tshark -r lab.pcapng -Y \"wlan.fc.type_subtype == 8\" -T fields -e wlan.bssid -e wlan.ssid",
+        "Offline BSSID canary: 02:00:00:00:00:01"
+      ],
+      "secure_behavior": "Every tested radio maps to written scope; neighbor observations remain out of scope.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "SSID names are not identity. MAC randomization and multiple radios can confound inventory.",
+      "remediation": "Maintain controller-backed inventory and scoped capture handling; investigate unknown transmitters through ownership records.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Kismet passive capture",
+        "Wireshark/TShark",
+        "Controller export"
+      ],
+      "sources": [
+        "https://www.wireshark.org/docs/man-pages/tshark.html",
+        "https://www.kismetwireless.net/docs/"
+      ],
+      "impact": "passive observation"
+    },
+    {
+      "id": "WIFI-02",
+      "domain": "wifi",
+      "title": "Advertised authentication and cipher posture",
+      "objective": "Compare advertised RSN capabilities to controller policy and actual authorized client negotiation.",
+      "prerequisites": [
+        "Owned beacon capture and sanitized WLAN configuration.",
+        "At least one approved test client per relevant device class."
+      ],
+      "procedure": [
+        "Inspect beacon/probe-response RSN information elements.",
+        "Compare allowed AKMs and ciphers to the configured WLAN.",
+        "Observe one approved association and record the actual negotiated mode."
+      ],
+      "probes": [
+        "tshark -r lab.pcapng -Y \"wlan.bssid == 02:00:00:00:00:01 && wlan.fc.type_subtype == 8\" -V"
+      ],
+      "secure_behavior": "Advertisement, configuration, and negotiated protection all meet the owner-approved policy.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A strong advertised capability does not mean every client uses it. Transition modes and legacy SSIDs need separate analysis.",
+      "remediation": "Remove unnecessary legacy modes and isolate unavoidable exceptions.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Wireshark",
+        "Controller configuration",
+        "Test client connection details"
+      ],
+      "sources": [
+        "https://www.wireshark.org/docs/man-pages/tshark.html",
+        "https://aircrack-ng.org/doku.php?id=airodump-ng"
+      ],
+      "impact": "passive plus owned-client association"
+    },
+    {
+      "id": "WIFI-03",
+      "domain": "wifi",
+      "title": "Protected management frame configuration",
+      "objective": "Check management-frame protection support and enforcement without disconnecting clients.",
+      "prerequisites": [
+        "Owned AP and client; vendor configuration export and beacon/association capture.",
+        "No deauthentication injection on shared spectrum."
+      ],
+      "procedure": [
+        "Inspect PMF capability/requirement in RSN details.",
+        "Compare AP configuration and test-client negotiated state.",
+        "In an RF-isolated lab, associate a deliberately incompatible client and record whether policy rejects it."
+      ],
+      "probes": [
+        "tshark -r lab.pcapng -Y \"wlan.bssid == 02:00:00:00:00:01 && wlan.fc.type_subtype == 8\" -V",
+        "Configuration review fields: PMF capable, PMF required, client negotiated PMF."
+      ],
+      "secure_behavior": "Required PMF is consistently enforced for the intended WLAN/client population.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "PMF protects specified robust management frames, not every possible disruption or all RF interference.",
+      "remediation": "Align PMF enforcement with the approved client fleet and separate unsupported devices.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Wireshark",
+        "AP controller",
+        "Owned client diagnostics"
+      ],
+      "sources": [
+        "https://www.wireshark.org/docs/man-pages/tshark.html"
+      ],
+      "impact": "configuration review; RF-isolated compatibility test"
+    },
+    {
+      "id": "WIFI-04",
+      "domain": "wifi",
+      "title": "Enterprise EAP server trust",
+      "objective": "Verify that managed clients validate the intended authentication server and trust chain.",
+      "prerequisites": [
+        "RF-isolated owned enterprise WLAN, test RADIUS service, and synthetic account.",
+        "No production SSID impersonation or collection of real credentials."
+      ],
+      "procedure": [
+        "Export the client EAP profile and intended server identity.",
+        "Connect normally to the legitimate lab server.",
+        "Change only the lab server certificate to an untrusted or wrong-name certificate.",
+        "Verify rejection before authentication data is released; inspect client/RADIUS logs."
+      ],
+      "probes": [
+        "Test matrix: valid chain + correct name; valid chain + wrong name; untrusted chain; expired certificate."
+      ],
+      "secure_behavior": "The client accepts only the approved identity and trust policy; invalid identity is rejected without a user bypass prompt.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A failed login can result from incorrect credentials rather than certificate validation. Observe the reason and protocol stage.",
+      "remediation": "Deploy explicit EAP trust/name configuration through managed profiles and remove user-overridable trust prompts where supported.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Managed Wi-Fi profile export",
+        "RADIUS logs",
+        "Wireshark"
+      ],
+      "sources": [
+        "https://www.kismetwireless.net/docs/",
+        "https://www.wireshark.org/docs/man-pages/tshark.html"
+      ],
+      "impact": "RF-isolated authentication validation"
+    },
+    {
+      "id": "WIFI-05",
+      "domain": "wifi",
+      "title": "Guest and client isolation",
+      "objective": "Check segmentation with owned canary services rather than broad internal discovery.",
+      "prerequisites": [
+        "Two test clients and a wired canary server in each explicitly approved segment.",
+        "Document a reachability matrix of source, destination, protocol, and expected result."
+      ],
+      "procedure": [
+        "From each approved source test a single fixed canary endpoint.",
+        "Compare guest-to-corporate, guest-to-guest, and client-to-management paths.",
+        "Repeat IPv4 and IPv6 where enabled.",
+        "Inspect firewall/controller logs."
+      ],
+      "probes": [
+        "curl --connect-timeout 2 --max-time 4 http://192.0.2.20:8080/wb-canary",
+        "Repeat only for listed source/destination pairs from the approved matrix."
+      ],
+      "secure_behavior": "Only the explicitly approved paths are reachable across both address families.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A silent host, host firewall, or service outage can look like network isolation. Verify a permitted control path simultaneously.",
+      "remediation": "Enforce segmentation at the correct network boundary, include IPv6, and validate management-plane rules.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Owned canary services",
+        "Firewall logs",
+        "Nmap limited to approved hosts/ports"
+      ],
+      "sources": [
+        "https://nmap.org/book/man.html"
+      ],
+      "impact": "bounded owned-service connection"
+    },
+    {
+      "id": "WIFI-06",
+      "domain": "wifi",
+      "title": "Management-plane exposure",
+      "objective": "Verify AP/controller administrative access from only the intended management network.",
+      "prerequisites": [
+        "Owner-listed management addresses and services.",
+        "Known test account; no credential guessing."
+      ],
+      "procedure": [
+        "Test the listed management endpoint from management, corporate, and guest sources.",
+        "Record TLS identity and login boundary.",
+        "Check controller ACLs and management VLAN assignments."
+      ],
+      "probes": [
+        "curl --connect-timeout 2 --max-time 4 -I https://controller.example.test/"
+      ],
+      "secure_behavior": "Management is restricted to approved origins and protected by the required authentication and transport.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A visible login page can differ from administrative access; distinguish exposure from successful authentication.",
+      "remediation": "Restrict administrative interfaces and enforce least privilege, MFA where supported, and validated TLS.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Browser",
+        "curl",
+        "Controller audit logs"
+      ],
+      "sources": [
+        "https://nmap.org/book/man.html"
+      ],
+      "impact": "bounded management connection"
+    },
+    {
+      "id": "WIFI-07",
+      "domain": "wifi",
+      "title": "WPS and onboarding policy",
+      "objective": "Review whether unintended enrollment mechanisms bypass the approved onboarding process.",
+      "prerequisites": [
+        "Owned AP configuration and onboarding workflow.",
+        "No PIN brute force or unsolicited enrollment attempts."
+      ],
+      "procedure": [
+        "Review WPS/alternate enrollment settings and physical access requirements.",
+        "In a disconnected lab, perform one approved enrollment using a test device.",
+        "Verify audit visibility and the resulting network role."
+      ],
+      "probes": [
+        "Configuration canary: WPS disabled on enterprise SSID; test-device enrollment confined to LAB-ONBOARD."
+      ],
+      "secure_behavior": "Only approved enrollment paths exist and newly enrolled devices receive the intended role.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "An advertised capability may be administratively disabled; configuration and one controlled enrollment are stronger evidence.",
+      "remediation": "Disable unused enrollment methods and constrain onboarding roles and credentials.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "AP controller",
+        "Owned test client",
+        "Passive capture"
+      ],
+      "sources": [
+        "https://aircrack-ng.org/doku.php?id=airodump-ng"
+      ],
+      "impact": "configuration and controlled enrollment"
+    },
+    {
+      "id": "WIFI-08",
+      "domain": "wifi",
+      "title": "Roaming and policy consistency",
+      "objective": "Check that roaming cannot move a test client into a weaker role or authentication policy.",
+      "prerequisites": [
+        "Two owned APs and a test client; identical intended WLAN policy.",
+        "Coordinate a small test window to avoid disrupting users."
+      ],
+      "procedure": [
+        "Record policy, VLAN/role, and negotiated security on AP A.",
+        "Move the test client to AP B using normal roaming.",
+        "Compare session/role continuity and enforcement.",
+        "Repeat once per relevant band."
+      ],
+      "probes": [
+        "Record before/after: BSSID, AP policy, client role, VLAN, authentication mode, UTC time."
+      ],
+      "secure_behavior": "Roaming preserves the intended identity, segmentation, and security policy.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A reconnect is not always a roam; cached credentials and controller policy propagation can alter observations.",
+      "remediation": "Align AP group policy, firmware, and role assignment; validate reauthentication boundaries.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Client diagnostics",
+        "Controller logs",
+        "Wireshark"
+      ],
+      "sources": [
+        "https://www.wireshark.org/docs/man-pages/tshark.html"
+      ],
+      "impact": "owned-client mobility test"
+    },
+    {
+      "id": "WIFI-09",
+      "domain": "wifi",
+      "title": "Passive identity and privacy leakage",
+      "objective": "Assess whether an approved capture exposes more identifying data than the assessment needs.",
+      "prerequisites": [
+        "Synthetic client identifiers and a short, purpose-limited capture.",
+        "Evidence retention and redaction rules; capture metadata only when sufficient."
+      ],
+      "procedure": [
+        "Review beacon, probe, and EAP identity fields for the synthetic client.",
+        "Check whether outer identity differs from the real account identifier.",
+        "Measure minimum fields required for the assessment and redact the rest."
+      ],
+      "probes": [
+        "tshark -r lab.pcapng -Y \"eap || wlan.fc.type_subtype == 4\" -V"
+      ],
+      "secure_behavior": "Identity exposure matches the protocol design and documented privacy policy; retained evidence is minimized.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "An outer anonymous identity is not a guarantee that all exchanges are anonymous; capture visibility depends on protocol stage.",
+      "remediation": "Use privacy-preserving managed profiles where appropriate and minimize retained capture content.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Wireshark",
+        "EAP client profile",
+        "RADIUS logs"
+      ],
+      "sources": [
+        "https://www.wireshark.org/docs/man-pages/tshark.html"
+      ],
+      "impact": "passive privacy review"
+    },
+    {
+      "id": "WIFI-10",
+      "domain": "wifi",
+      "title": "Wireless evidence reproducibility",
+      "objective": "Record RF conditions and sensor constraints so negative observations are not overstated.",
+      "prerequisites": [
+        "Owned capture sensor with documented adapter/driver/firmware.",
+        "Known channel, test interval, and AP/client fixture."
+      ],
+      "procedure": [
+        "Record channel/band, sensor position category, driver, capture drops, and filter.",
+        "Capture a known beacon/control association.",
+        "Compare observed fixture packets to expected events.",
+        "Mark unsupported bands and missed channels as not tested."
+      ],
+      "probes": [
+        "tshark -r lab.pcapng -c 20 -V",
+        "Evidence manifest: sensor_id, adapter, driver, channel, band, start_utc, end_utc, packet_drop_count."
+      ],
+      "secure_behavior": "Coverage claims are bounded by recorded sensor capability and successful positive controls.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Channel hopping can miss short events; no observed frame is not proof that no frame was transmitted.",
+      "remediation": "Use fixed-channel captures for timed tests and retain positive controls with capture metadata.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Kismet",
+        "TShark",
+        "evidence-seal"
+      ],
+      "sources": [
+        "https://www.wireshark.org/docs/man-pages/tshark.html",
+        "https://aircrack-ng.org/doku.php?id=airodump-ng"
+      ],
+      "impact": "passive measurement quality"
+    },
+    {
+      "id": "ENDPOINT-01",
+      "domain": "endpoint",
+      "title": "Local administrative privilege and identity",
+      "objective": "Review assigned and effective local privilege on Windows or Linux.",
+      "prerequisites": [
+        "Owner-authorized local account and host inventory.",
+        "Do not change group membership during the baseline."
+      ],
+      "procedure": [
+        "Record host identity and current user/groups.",
+        "Review local administrators or sudo policy using approved read access.",
+        "Map entries to business owners and check stale principals."
+      ],
+      "probes": [
+        "whoami /all",
+        "Get-LocalGroupMember -Group Administrators",
+        "id; sudo -l"
+      ],
+      "secure_behavior": "Effective administrative access is necessary and attributable; day-to-day identities are separated from elevated roles.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Localized group names and directory resolution failures can hide membership. sudo -l may prompt; use only your authorized credentials.",
+      "remediation": "Remove unjustified privilege and deploy scoped elevation workflows.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "PowerShell",
+        "Native identity tools",
+        "osquery"
+      ],
+      "sources": [
+        "https://osquery.readthedocs.io/en/stable/"
+      ],
+      "impact": "read-only local inspection"
+    },
+    {
+      "id": "ENDPOINT-02",
+      "domain": "endpoint",
+      "title": "Service executable and configuration permissions",
+      "objective": "Review whether a low-privilege identity can alter a privileged service dependency.",
+      "prerequisites": [
+        "Scoped service list and read access to service/registry/file ACLs.",
+        "No service restart or executable replacement on production."
+      ],
+      "procedure": [
+        "Export service account and executable path.",
+        "Inspect ACLs on the binary, parent directories, and configuration.",
+        "Resolve quoting and path ambiguity in a lab clone.",
+        "Validate effective write capability on a planted harmless file only."
+      ],
+      "probes": [
+        "Get-CimInstance Win32_Service | Select-Object Name,StartName,PathName,StartMode",
+        "icacls \"C:\\Lab\\Service\\service.exe\"",
+        "systemctl cat lab-canary.service"
+      ],
+      "secure_behavior": "Unprivileged identities cannot alter privileged service code or configuration.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "An unquoted path is not automatically exploitable if no candidate path is writable. An ACL listing does not alone prove effective write access.",
+      "remediation": "Quote service paths correctly, lock down dependencies, and use least-privilege service identities.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "PowerShell CIM",
+        "icacls",
+        "systemctl",
+        "osquery"
+      ],
+      "sources": [
+        "https://osquery.readthedocs.io/en/stable/"
+      ],
+      "impact": "read-only configuration; planted-file lab validation"
+    },
+    {
+      "id": "ENDPOINT-03",
+      "domain": "endpoint",
+      "title": "Scheduled task and startup boundaries",
+      "objective": "Identify writable startup dependencies that cross privilege boundaries.",
+      "prerequisites": [
+        "Authorized startup/task inventory and ACL read access.",
+        "Use a disposable scheduled task for any execution proof."
+      ],
+      "procedure": [
+        "Export task principal, trigger, action, and startup location.",
+        "Inspect write permissions on each referenced file and directory.",
+        "In the clone, replace only the planted canary action and observe a marker file.",
+        "Restore and verify the fixture."
+      ],
+      "probes": [
+        "Get-ScheduledTask | Select-Object TaskName,TaskPath,State",
+        "Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location",
+        "systemctl list-timers --all"
+      ],
+      "secure_behavior": "Only trusted administrators can change dependencies executed with higher privilege.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Disabled tasks and unreachable triggers may not execute. Separate configuration weakness from demonstrated execution.",
+      "remediation": "Restrict task/startup write permissions and reduce run-as privilege.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "PowerShell ScheduledTasks",
+        "osquery",
+        "systemd tools"
+      ],
+      "sources": [
+        "https://osquery.readthedocs.io/en/stable/"
+      ],
+      "impact": "read-only inventory; reversible lab canary"
+    },
+    {
+      "id": "ENDPOINT-04",
+      "domain": "endpoint",
+      "title": "Patch and exposure validation",
+      "objective": "Reconcile package/build inventory with actual reachable services and vendor advisories.",
+      "prerequisites": [
+        "Approved host and package inventory; dated vendor advisory for the relevant product.",
+        "Do not equate a banner string with exploitability."
+      ],
+      "procedure": [
+        "Record OS build and installed package versions.",
+        "Map relevant advisories to affected configuration and vendor backports.",
+        "Validate listed service reachability from the approved vantage point.",
+        "Record unavailable or contradictory evidence."
+      ],
+      "probes": [
+        "Get-ComputerInfo | Select-Object WindowsProductName,WindowsVersion,OsBuildNumber",
+        "Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 20",
+        "osqueryi --json \"select name,version from deb_packages limit 100;\""
+      ],
+      "secure_behavior": "Relevant fixes are present or compensating controls are independently verified for the actual configuration.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Get-HotFix is not a complete software inventory; package backports and feature configuration affect applicability.",
+      "remediation": "Apply vendor-supported updates and verify affected component state, not only update installation history.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Vendor advisories",
+        "osquery",
+        "Nmap scoped service validation"
+      ],
+      "sources": [
+        "https://osquery.readthedocs.io/en/stable/",
+        "https://nmap.org/book/man.html"
+      ],
+      "impact": "read-only inventory"
+    },
+    {
+      "id": "ENDPOINT-05",
+      "domain": "endpoint",
+      "title": "Disk protection and boot integrity",
+      "objective": "Review encryption and boot protection states with the system owner.",
+      "prerequisites": [
+        "Approved host and administrative read capability if needed.",
+        "Never collect recovery keys or alter boot settings."
+      ],
+      "procedure": [
+        "Export encryption and secure-boot status.",
+        "Check management escrow/rotation evidence without revealing keys.",
+        "Compare device role and approved baseline."
+      ],
+      "probes": [
+        "Get-BitLockerVolume | Select-Object MountPoint,VolumeStatus,ProtectionStatus,EncryptionMethod",
+        "Confirm-SecureBootUEFI",
+        "lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINTS"
+      ],
+      "secure_behavior": "Required volumes and boot configuration meet the approved baseline; key handling is independently controlled.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Encrypted volume status differs from active protection. Firmware/VM capability can make some commands unsupported.",
+      "remediation": "Enable supported protection through managed rollout and validate recovery processes separately.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "PowerShell BitLocker",
+        "Firmware configuration",
+        "lsblk"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/powershell/module/bitlocker/"
+      ],
+      "impact": "read-only protection review"
+    },
+    {
+      "id": "ENDPOINT-06",
+      "domain": "endpoint",
+      "title": "Endpoint firewall and remote administration",
+      "objective": "Validate intended inbound exposure using explicit owned test services.",
+      "prerequisites": [
+        "Expected service/port matrix, known host, and authorized source addresses.",
+        "Do not disable the firewall or widen access for the test."
+      ],
+      "procedure": [
+        "Export listening sockets and active firewall profiles.",
+        "Connect to only the listed test services from permitted and prohibited sources.",
+        "Confirm the service is healthy through a permitted control path."
+      ],
+      "probes": [
+        "Get-NetFirewallProfile | Select-Object Name,Enabled,DefaultInboundAction,DefaultOutboundAction",
+        "Get-NetTCPConnection -State Listen | Select-Object LocalAddress,LocalPort,OwningProcess",
+        "ss -lntup"
+      ],
+      "secure_behavior": "Only necessary remote services are reachable from approved origins under the active profile.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A listening socket is not necessarily remotely reachable. Host and network firewalls can overlap.",
+      "remediation": "Restrict listeners and firewall rules; secure remote administration with approved identity controls.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "PowerShell NetSecurity",
+        "ss",
+        "Nmap explicit ports"
+      ],
+      "sources": [
+        "https://nmap.org/book/man.html"
+      ],
+      "impact": "read-only inventory plus bounded connections"
+    },
+    {
+      "id": "ENDPOINT-07",
+      "domain": "endpoint",
+      "title": "Telemetry attribution and integrity",
+      "objective": "Check whether an owned canary action is captured with enough context for investigation.",
+      "prerequisites": [
+        "Synthetic marker action, telemetry owner, synchronized clocks.",
+        "Record expected events before execution; never disable or tamper with sensors."
+      ],
+      "procedure": [
+        "Run the marker command once with the authorized test identity.",
+        "Find local and centralized records.",
+        "Compare user, host, parent process, command line, and timestamp.",
+        "Record sensor loss or missing configuration explicitly."
+      ],
+      "probes": [
+        "cmd /c echo WB_ENDPOINT_CANARY",
+        "printf WB_ENDPOINT_CANARY"
+      ],
+      "secure_behavior": "The action is attributable in approved telemetry within the agreed latency and retention window.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "Shell built-ins may not produce a separate process event; identify the shell process and the configured event sources.",
+      "remediation": "Configure adequate logging, protect collection paths, and test ingestion health.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Windows event logs",
+        "osquery configured event tables",
+        "Velociraptor owned collection"
+      ],
+      "sources": [
+        "https://docs.velociraptor.app/",
+        "https://osquery.readthedocs.io/en/stable/"
+      ],
+      "impact": "harmless marker execution"
+    },
+    {
+      "id": "ENDPOINT-08",
+      "domain": "endpoint",
+      "title": "Secret storage controls without secret extraction",
+      "objective": "Evaluate whether credential-bearing locations have appropriate access controls.",
+      "prerequisites": [
+        "Owner-provided inventory of credential storage locations and a planted fake-secret file.",
+        "Do not dump process memory, credential stores, or real key material."
+      ],
+      "procedure": [
+        "Inspect ACLs and ownership metadata for listed locations.",
+        "Test low-privilege access only against the fake-secret fixture.",
+        "Review whether real locations use approved OS-protected storage."
+      ],
+      "probes": [
+        "icacls \"C:\\Lab\\Secrets\\fake-secret.txt\"",
+        "stat -c \"%a %U %G %n\" /opt/lab/fake-secret.txt"
+      ],
+      "secure_behavior": "Only intended principals can access the fixture under equivalent storage policy; real secret handling meets the approved design.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A planted file can fail to model application encryption or service identity correctly. State the equivalence assumptions.",
+      "remediation": "Use approved secret stores, least-privilege ACLs, and lifecycle controls; validate applications without copying secrets.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "icacls",
+        "stat",
+        "Owner configuration review"
+      ],
+      "sources": [
+        "https://osquery.readthedocs.io/en/stable/"
+      ],
+      "impact": "metadata and synthetic-secret review"
+    },
+    {
+      "id": "ENDPOINT-09",
+      "domain": "endpoint",
+      "title": "Application control and signed-code policy",
+      "objective": "Test policy enforcement with benign known files rather than malware or bypass tooling.",
+      "prerequisites": [
+        "Disposable endpoint and owner-approved benign signed/unsigned test binaries.",
+        "Agree rollback and the expected allow/deny matrix."
+      ],
+      "procedure": [
+        "Record application-control policy and enforcement mode.",
+        "Attempt the approved benign executable set.",
+        "Compare block/allow decisions and audit events.",
+        "Distinguish audit-only policy from enforced blocking."
+      ],
+      "probes": [
+        "Fixture matrix: approved signed tool; unsigned benign hello-world; approved script; disallowed benign script."
+      ],
+      "secure_behavior": "Execution decisions and audit records match the approved policy on the actual user context.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "A blocked executable may fail for missing dependencies rather than application control. Use the policy event as corroboration.",
+      "remediation": "Deploy tested enforced policy and review exceptions with accountable owners.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Windows application-control event logs",
+        "Platform-native policy tools"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/windows/security/application-security/application-control/"
+      ],
+      "impact": "benign executable lab validation"
+    },
+    {
+      "id": "ENDPOINT-10",
+      "domain": "endpoint",
+      "title": "Recovery and retest evidence",
+      "objective": "Demonstrate that a reversible lab incident can be restored without claiming general ransomware resilience.",
+      "prerequisites": [
+        "Snapshot of a disposable VM, synthetic files, and an approved restore procedure.",
+        "No destructive encryption or backup deletion."
+      ],
+      "procedure": [
+        "Hash a small synthetic directory.",
+        "Have the owner perform a reversible fixture change.",
+        "Restore from the approved snapshot/backup.",
+        "Verify file hashes and measure elapsed recovery against the stated objective."
+      ],
+      "probes": [
+        "Use evidence-seal before the fixture change and after restore.",
+        "Record restore point, backup age, recovery start/end UTC, and failed verification items."
+      ],
+      "secure_behavior": "The defined synthetic recovery objective is met and restored content matches the baseline.",
+      "evidence": [
+        "Written scope ID; case ID; UTC timestamp; tester identity; exact target and tool version.",
+        "Baseline and probe artifacts, sanitized before reporting; SHA-256 hashes of retained originals.",
+        "Record observed result, control comparison, and any missing telemetry; do not replace raw evidence with a screenshot alone."
+      ],
+      "false_positives": "One VM restore does not validate identity recovery, immutable backups, or organization-wide disaster recovery.",
+      "remediation": "Correct restore gaps and repeat the same bounded recovery scenario with documented dependencies.",
+      "retest": "Repeat the identical baseline and probe after the change with the same principal, target, and vantage point. Record changed preconditions and verify the original failure is blocked without breaking the authorized workflow.",
+      "tools": [
+        "Hypervisor snapshot tools",
+        "Backup platform",
+        "evidence-seal"
+      ],
+      "sources": [
+        "https://csrc.nist.gov/pubs/sp/800/115/final"
+      ],
+      "impact": "owner-operated reversible restore exercise"
+    }
+  ]
+}
